@@ -13,6 +13,11 @@ EM.registerSystem((foo) => console.log(foo), "bar2");
 
 for (let i = 0; i < 3; i++) {
   console.log("irrelvant line 3s");
+
+  const em = EM;
+  function regSomeStuff() {
+    em.registerSystem((foo) => console.log(foo), "bar2b");
+  }
 }
 
 // comment again
