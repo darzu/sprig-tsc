@@ -4,10 +4,13 @@ console.log("irrelvant line");
 
 EM.registerSystem((foo) => console.log(foo), "bar");
 
+
+
 if (true) console.log("irrelvant line 2");
 
 /*
 comment
+
 */
 EM.registerSystem((foo) => console.log(foo), "bar2");
 
@@ -24,6 +27,7 @@ if (true) {
 }
 
 // comment again
+
 // comment again and again
 EM.registerSystem((foo) => console.log(foo), "bar3");
 

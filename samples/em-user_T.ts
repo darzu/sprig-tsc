@@ -5,6 +5,7 @@ if (true)
     console.log("irrelvant line 2");
 /*
 comment
+
 */
 EM.registerSystem2("bar2", (foo) => console.log(foo));
 for (let i = 0; i < 3; i++) {

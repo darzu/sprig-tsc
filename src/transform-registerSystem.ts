@@ -80,24 +80,53 @@ function transform(fileNames: string[]): void {
     });
     // const stmts = e.statements;
     // const newStmts = stmts.map((s) => visitStmt(s));
-    // return ts.factory.createSourceFile(newStmts, e.endOfFileToken, e.flags);
-    return newStmts.join("\n");
+    // const newFile = ts.factory.createSourceFile(
+    //   newStmts,
+    //   e.endOfFileToken,
+    //   e.flags
+    // );
+    // return newStmts.join("\n");
+    // TODO(@darzu): difference between update and create?
+    // const newFile = ts.factory.updateSourceFile(sourceFile, newStmts);
+    return newStmts
+      .map((s) => printer.printNode(ts.EmitHint.Unspecified, s, sourceFile))
+      .join("\n");
+    // return printer.printNode(ts.EmitHint.Unspecified, newFile, sourceFile);
     // return e;
+
+    // let res = "";
+    // let foo = sourceFile.getLineStarts();
+
+    // for (let s of newStmts) {
+    //   let triviaNum = s.getLeadingTriviaWidth(sourceFile);
+    //   let start = s.getStart(sourceFile);
+    //   const preLn = sourceFile.getLineAndCharacterOfPosition(start).line;
+    //   let first = s.getFirstToken(sourceFile);
+    //   if (first) {
+    //     const stmtLn = sourceFile.getLineAndCharacterOfPosition(
+    //       first.getStart()
+    //     );
+    //     console.log("foo");
+    //   }
+    //   // res +=
+    // }
+    // return res;
   }
 
-  function visitStmt(e: ts.Statement): string {
+  function visitStmt(e: ts.Statement): ts.Statement {
     // console.log(`visiting ${SyntaxKindName[e.kind]}`);
     if (ts_isDeclaration(e)) {
       if (ts.isFunctionDeclaration(e)) {
         if (e.body) {
           const newStmts = e.body.statements.map((s) => visitStmt(s));
           // TODO(@darzu): handle modifiers
-          return (
-            `function ${e.name!}` +
-            `(${e.parameters.map((p) => p.getFullText()).join(",")}) {\n` +
-            `  ${newStmts.join("\n")}` +
-            `\n}\n`
-          );
+          // return (
+          //   `function ${e.name!}` +
+          //   `(${e.parameters.map((p) => p.getFullText()).join(",")}) {\n` +
+          //   `  ${newStmts.join("\n")}` +
+          //   `\n}\n`
+          // );
+          return e;
         }
       }
     } else if (ts.isExpressionStatement(e)) {
@@ -130,17 +159,19 @@ function transform(fileNames: string[]): void {
                 [],
                 [nameArg, fnArg]
               );
-              const newStmt = ts.factory.createExpressionStatement(newCall);
+              // const newStmt = ts.factory.createExpressionStatement(newCall);
+              const newStmt = ts.factory.updateExpressionStatement(e, newCall);
               // console.log(newCall.getFullText());
               // const newStmt = ts.factory.createExpressionStatement(newCall);
               // console.log("found reg sys");
               // console.log(
               //   );
-              return printer.printNode(
-                ts.EmitHint.Unspecified,
-                newStmt,
-                sourceFile
-              );
+              // return printer.printNode(
+              //   ts.EmitHint.Unspecified,
+              //   newStmt,
+              //   sourceFile
+              // );
+              return newStmt;
               // return newStmt;
               // return (
               //   `${emExp.getFullText()}.registerSystem2` +
@@ -156,7 +187,12 @@ function transform(fileNames: string[]): void {
     // const leading = e.getLeadingTriviaWidth();
     // console.log(e.getFullText());
     // return e.getFullText();
-    return printer.printNode(ts.EmitHint.Unspecified, e, sourceFile);
+    // return printer.printNode(ts.EmitHint.Unspecified, e, sourceFile);
+    // ts.getCommentRange(
+    console.log(`trivia: ${e.getLeadingTriviaWidth()}`);
+    // ts.couldStartTrivia
+    // ts.isWhiteSpaceSingleLine
+    return e;
     // return e;
   }
   function visitExp(e: ts.Expression) {
