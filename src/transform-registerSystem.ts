@@ -37,7 +37,7 @@ function transform(fileNames: string[]): void {
   // for (let e of sourceFile.getChildren()) {
   //   visitSourceFile(e);
   // }
-  const newFile = visitSourceFile(sourceFile);
+  const newFileStr = visitSourceFile(sourceFile);
 
   // ts.forEachChild(sourceFile, (node) => {
   //   // console.log(`kind: ${SyntaxKindName[node.kind]}`);
@@ -47,11 +47,11 @@ function transform(fileNames: string[]): void {
   //   }
   // });
 
-  const newFileStr = printer.printNode(
-    ts.EmitHint.SourceFile,
-    newFile,
-    newFile
-  );
+  // const newFileStr = printer.printNode(
+  //   ts.EmitHint.SourceFile,
+  //   newFile,
+  //   newFile
+  // );
 
   // console.log(newFileStr);
 
@@ -64,7 +64,7 @@ function transform(fileNames: string[]): void {
     return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
   }
 
-  function visitSourceFile(e: ts.SourceFile): ts.SourceFile {
+  function visitSourceFile(e: ts.SourceFile): string {
     let children = e.getChildren();
     assert(children.length === 2);
     const [syntaxList, endOfFileToken] = children;
@@ -80,15 +80,16 @@ function transform(fileNames: string[]): void {
     });
     // const stmts = e.statements;
     // const newStmts = stmts.map((s) => visitStmt(s));
-    return ts.factory.createSourceFile(newStmts, e.endOfFileToken, e.flags);
+    // return ts.factory.createSourceFile(newStmts, e.endOfFileToken, e.flags);
+    return newStmts.join("");
     // return e;
   }
 
-  function visitStmt(e: ts.Statement): ts.Statement {
+  function visitStmt(e: ts.Statement): string {
     // console.log(`visiting ${SyntaxKindName[e.kind]}`);
     if (ts_isDeclaration(e)) {
       if (ts.isImportDeclaration(e)) {
-        e;
+        // e;
       }
       // nop
     } else if (ts.isExpressionStatement(e)) {
@@ -111,18 +112,22 @@ function transform(fileNames: string[]): void {
               // const fnType = e.typeArguments![0];
               const nameArg = callExp.arguments[1];
               // const nameType = e.typeArguments![1];
-              const newCall = ts.factory.createCallExpression(
-                propExp,
-                // [nameType, fnType],
-                [],
-                [nameArg, fnArg]
-              );
-              const newStmt = ts.factory.createExpressionStatement(newCall);
+              // const newCall = ts.factory.createCallExpression(
+              //   propExp,
+              //   // [nameType, fnType],
+              //   [],
+              //   [nameArg, fnArg]
+              // );
+              // const newStmt = ts.factory.createExpressionStatement(newCall);
               // console.log("found reg sys");
               // console.log(
               //   printer.printNode(ts.EmitHint.Unspecified, newCall, sourceFile)
               // );
-              return newStmt;
+              // return newStmt;
+              return (
+                `${emExp.getFullText()}.registerSystem2` +
+                `(${nameArg.getFullText().trim()}, ${fnArg.getFullText()});`
+              );
             }
           }
         }
@@ -132,7 +137,8 @@ function transform(fileNames: string[]): void {
     }
     // const leading = e.getLeadingTriviaWidth();
     // console.log(e.getFullText());
-    return e;
+    return e.getFullText();
+    // return e;
   }
   function visitExp(e: ts.Expression) {
     if (ts.isCallExpression(e)) {
