@@ -1,0 +1,2 @@
+[ ] remove depenency on ts-morph
+[ ] move to deno (couldn't figure out how to get typescript.ts there)
