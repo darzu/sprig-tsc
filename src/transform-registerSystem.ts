@@ -1,5 +1,7 @@
 import ts from "typescript";
 import { SyntaxKindName } from "./syntaxKindName.js";
+import { assert } from "./util.js";
+import fs from "fs";
 
 const opts: ts.CompilerOptions = {
   noEmitOnError: true,
@@ -8,20 +10,34 @@ const opts: ts.CompilerOptions = {
   module: ts.ModuleKind.ES2022,
 };
 
-transform(["../samples/em-user.ts"]);
+const SAMPLES_PATH = "/Users/darzu/projects/sprig-tsc/samples";
+
+const PATH = `${SAMPLES_PATH}/em-user.ts`;
+const PATH_OUT = `${SAMPLES_PATH}/em-user_T.ts`;
+
+transform([PATH]);
 
 function transform(fileNames: string[]): void {
-  console.log("running transform-registerSystem");
+  console.log("running transform-registerSystem 3");
 
   let program = ts.createProgram(fileNames, opts);
 
+  const diags = ts.getPreEmitDiagnostics(program);
+  for (let d of diags) {
+    console.log(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
+  }
+
   const sourceFile = program.getSourceFile(fileNames[0])!;
 
-  const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
+  const printer = ts.createPrinter({
+    removeComments: false,
+    newLine: ts.NewLineKind.LineFeed,
+  });
 
-  for (let e of sourceFile.getChildren()) {
-    visitNode(e);
-  }
+  // for (let e of sourceFile.getChildren()) {
+  //   visitSourceFile(e);
+  // }
+  const newFile = visitSourceFile(sourceFile);
 
   // ts.forEachChild(sourceFile, (node) => {
   //   // console.log(`kind: ${SyntaxKindName[node.kind]}`);
@@ -31,59 +47,95 @@ function transform(fileNames: string[]): void {
   //   }
   // });
 
+  const newFileStr = printer.printNode(
+    ts.EmitHint.SourceFile,
+    newFile,
+    newFile
+  );
+
+  // console.log(newFileStr);
+
+  // console.log(emit(newFile));
+  fs.writeFile(PATH_OUT, newFileStr, (err) => {
+    console.error(err?.message);
+  });
+
   function emit(n: ts.Node) {
     return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
   }
 
-  function visitNode(e: ts.Node) {
-    if (ts_isSyntaxList(e)) {
-      for (let e2 of e._children) {
-        visitNode(e2);
+  function visitSourceFile(e: ts.SourceFile): ts.SourceFile {
+    let children = e.getChildren();
+    assert(children.length === 2);
+    const [syntaxList, endOfFileToken] = children;
+    assert(ts_isSyntaxList(syntaxList));
+    assert(endOfFileToken.kind === ts.SyntaxKind.EndOfFileToken);
+    const newStmts = syntaxList._children.map((e) => {
+      if (ts_isStatement(e)) {
+        return visitStmt(e);
+      } else {
+        console.log(`unknown node ${SyntaxKindName[e.kind]}`);
+        return e as ts.Statement;
       }
-    } else if (e.kind === ts.SyntaxKind.EndOfFileToken) {
-      // nop
-    } else if (ts_isStatement(e)) {
-      visitStmt(e);
-    } else {
-      console.warn(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
-    }
+    });
+    // const stmts = e.statements;
+    // const newStmts = stmts.map((s) => visitStmt(s));
+    return ts.factory.createSourceFile(newStmts, e.endOfFileToken, e.flags);
+    // return e;
   }
 
-  function visitStmt(e: ts.Statement) {
+  function visitStmt(e: ts.Statement): ts.Statement {
+    // console.log(`visiting ${SyntaxKindName[e.kind]}`);
     if (ts_isDeclaration(e)) {
+      if (ts.isImportDeclaration(e)) {
+        e;
+      }
       // nop
     } else if (ts.isExpressionStatement(e)) {
-      visitExp(e.expression);
-    } else {
-      console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
-    }
-  }
-  function visitExp(e: ts.Expression) {
-    if (ts.isCallExpression(e)) {
-      const e2 = e.expression;
-      if (ts.isPropertyAccessExpression(e2)) {
-        const member = e2.name;
-        const e3 = e2.expression;
-        if (ts.isIdentifier(e3)) {
-          if (e3.text === "EM" && member.text === "registerSystem") {
-            console.log("found reg sys");
-            const fnArg = e.arguments[0];
-            // const fnType = e.typeArguments![0];
-            const nameArg = e.arguments[1];
-            // const nameType = e.typeArguments![1];
-            const newCall = ts.factory.createCallExpression(
-              e2,
-              // [nameType, fnType],
-              [],
-              [nameArg, fnArg]
-            );
-
-            console.log(
-              printer.printNode(ts.EmitHint.Unspecified, newCall, sourceFile)
-            );
+      // console.log("isExpressionStatement");
+      // visitExp(e.expression);
+      const callExp = e.expression;
+      if (ts.isCallExpression(callExp)) {
+        // console.log(`isCallExpression, e.: ${SyntaxKindName[e.expression.kind]}`);
+        const propExp = callExp.expression;
+        if (ts.isPropertyAccessExpression(propExp)) {
+          // console.log("isPropertyAccessExpression");
+          const member = propExp.name;
+          const emExp = propExp.expression;
+          if (ts.isIdentifier(emExp)) {
+            if (
+              (emExp.text === "EM" || emExp.text === "em") &&
+              member.text === "registerSystem"
+            ) {
+              const fnArg = callExp.arguments[0];
+              // const fnType = e.typeArguments![0];
+              const nameArg = callExp.arguments[1];
+              // const nameType = e.typeArguments![1];
+              const newCall = ts.factory.createCallExpression(
+                propExp,
+                // [nameType, fnType],
+                [],
+                [nameArg, fnArg]
+              );
+              const newStmt = ts.factory.createExpressionStatement(newCall);
+              // console.log("found reg sys");
+              // console.log(
+              //   printer.printNode(ts.EmitHint.Unspecified, newCall, sourceFile)
+              // );
+              return newStmt;
+            }
           }
         }
       }
+    } else {
+      console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+    }
+    // const leading = e.getLeadingTriviaWidth();
+    // console.log(e.getFullText());
+    return e;
+  }
+  function visitExp(e: ts.Expression) {
+    if (ts.isCallExpression(e)) {
       // visitExp(e.expression);
     } else {
       console.warn(`unknown Expression kind: ${SyntaxKindName[e.kind]}`);
@@ -102,6 +154,9 @@ function ts_isStatement(e: ts.Node): e is ts.Statement {
   // TODO(@darzu): annoying this doesn't exist already
   return (
     e.kind === ts.SyntaxKind.ImportDeclaration ||
+    e.kind === ts.SyntaxKind.IfStatement ||
+    e.kind === ts.SyntaxKind.ForStatement ||
+    e.kind === ts.SyntaxKind.FunctionDeclaration ||
     e.kind === ts.SyntaxKind.ExpressionStatement
     // TODO(@darzu): add more kinds
   );
