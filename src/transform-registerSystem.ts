@@ -46,20 +46,50 @@ function visitNode(e: ts.Node) {
   } else if (ts_isStatement(e)) {
     visitStmt(e);
   } else {
-    console.log(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
+    console.warn(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
   }
 }
 
 function visitStmt(e: ts.Statement) {
-  console.log(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+  if (ts_isDeclaration(e)) {
+    // nop
+  } else if (ts.isExpressionStatement(e)) {
+    visitExp(e.expression);
+  } else {
+    console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+  }
+}
+function visitExp(e: ts.Expression) {
+  if (ts.isCallExpression(e)) {
+    const e2 = e.expression;
+    if (ts.isPropertyAccessExpression(e2)) {
+      const member = e2.name;
+      const e3 = e2.expression;
+      if (ts.isIdentifier(e3)) {
+        if (e3.text === "EM" && member.text === "registerSystem") {
+          console.log("found reg sys");
+        }
+      }
+    }
+    // visitExp(e.expression);
+  } else {
+    console.warn(`unknown Expression kind: ${SyntaxKindName[e.kind]}`);
+  }
 }
 
 // TODO(@darzu): Move these into TypeScript?
+function ts_isDeclaration(e: ts.Node): e is ts.Declaration {
+  return (
+    e.kind === ts.SyntaxKind.ImportDeclaration
+    // TODO(@darzu): add more kinds
+  );
+}
 function ts_isStatement(e: ts.Node): e is ts.Statement {
   // TODO(@darzu): annoying this doesn't exist already
   return (
     e.kind === ts.SyntaxKind.ImportDeclaration ||
     e.kind === ts.SyntaxKind.ExpressionStatement
+    // TODO(@darzu): add more kinds
   );
 }
 function ts_isSyntaxList(e: ts.Node): e is ts.SyntaxList {
