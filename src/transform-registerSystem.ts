@@ -8,23 +8,62 @@ const opts: ts.CompilerOptions = {
   module: ts.ModuleKind.ES2022,
 };
 
-compile(["../samples/em-user.ts"]);
+transform(["../samples/em-user.ts"]);
 
-function compile(fileNames: string[]): void {
+function transform(fileNames: string[]): void {
+  console.log("running transform-registerSystem");
+
   let program = ts.createProgram(fileNames, opts);
+
   const sourceFile = program.getSourceFile(fileNames[0])!;
 
   const printer = ts.createPrinter({ newLine: ts.NewLineKind.LineFeed });
 
-  console.log("transform-registerSystem");
+  for (let e of sourceFile.getChildren()) {
+    visitNode(e);
+  }
 
-  ts.forEachChild(sourceFile, (node) => {
-    console.log(`kind: ${SyntaxKindName[node.kind]}`);
-    if (ts.isCallExpression(node)) {
-      const str = printer.printNode(ts.EmitHint.Unspecified, node, sourceFile);
-      console.log(`calling: ${str}`);
-    }
-  });
+  // ts.forEachChild(sourceFile, (node) => {
+  //   // console.log(`kind: ${SyntaxKindName[node.kind]}`);
+  //   // if (ts.isstatement
+  //   if (ts.isCallExpression(node)) {
+  //     console.log(`calling: ${emit(node)}`);
+  //   }
+  // });
+
+  function emit(n: ts.Node) {
+    return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
+  }
 }
 
-// const syntaxKindToString;
+function visitNode(e: ts.Node) {
+  if (ts_isSyntaxList(e)) {
+    for (let e2 of e._children) {
+      visitNode(e2);
+    }
+  } else if (e.kind === ts.SyntaxKind.EndOfFileToken) {
+    // nop
+  } else if (ts_isStatement(e)) {
+    visitStmt(e);
+  } else {
+    console.log(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
+  }
+}
+
+function visitStmt(e: ts.Statement) {
+  console.log(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+}
+
+// TODO(@darzu): Move these into TypeScript?
+function ts_isStatement(e: ts.Node): e is ts.Statement {
+  // TODO(@darzu): annoying this doesn't exist already
+  return (
+    e.kind === ts.SyntaxKind.ImportDeclaration ||
+    e.kind === ts.SyntaxKind.ExpressionStatement
+  );
+}
+function ts_isSyntaxList(e: ts.Node): e is ts.SyntaxList {
+  return e.kind === ts.SyntaxKind.SyntaxList;
+}
+
+// ts.SyntaxKind.statement
