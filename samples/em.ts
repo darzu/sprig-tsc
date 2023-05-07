@@ -2,7 +2,7 @@ export class EntityManager {
   public registerSystem(callback: (foo: string) => void, name: string): void {
     callback(name + " OLD");
   }
-  public registerSystem2(name, callback: (foo: string) => void): void {
+  public registerSystem2(name: string, callback: (foo: string) => void): void {
     callback(name + " NEW");
   }
 }

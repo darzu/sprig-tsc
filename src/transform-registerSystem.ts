@@ -6,7 +6,7 @@ import fs from "fs";
 const opts: ts.CompilerOptions = {
   noEmitOnError: true,
   noImplicitAny: true,
-  target: ts.ScriptTarget.ES5,
+  target: ts.ScriptTarget.ES2020,
   module: ts.ModuleKind.ES2022,
 };
 
@@ -60,9 +60,9 @@ function transform(fileNames: string[]): void {
     console.error(err?.message);
   });
 
-  function emit(n: ts.Node) {
-    return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
-  }
+  // function emit(n: ts.Node) {
+  //   return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
+  // }
 
   function visitSourceFile(e: ts.SourceFile): string {
     let children = e.getChildren();
@@ -81,17 +81,25 @@ function transform(fileNames: string[]): void {
     // const stmts = e.statements;
     // const newStmts = stmts.map((s) => visitStmt(s));
     // return ts.factory.createSourceFile(newStmts, e.endOfFileToken, e.flags);
-    return newStmts.join("");
+    return newStmts.join("\n");
     // return e;
   }
 
   function visitStmt(e: ts.Statement): string {
     // console.log(`visiting ${SyntaxKindName[e.kind]}`);
     if (ts_isDeclaration(e)) {
-      if (ts.isImportDeclaration(e)) {
-        // e;
+      if (ts.isFunctionDeclaration(e)) {
+        if (e.body) {
+          const newStmts = e.body.statements.map((s) => visitStmt(s));
+          // TODO(@darzu): handle modifiers
+          return (
+            `function ${e.name!}` +
+            `(${e.parameters.map((p) => p.getFullText()).join(",")}) {\n` +
+            `  ${newStmts.join("\n")}` +
+            `\n}\n`
+          );
+        }
       }
-      // nop
     } else if (ts.isExpressionStatement(e)) {
       // console.log("isExpressionStatement");
       // visitExp(e.expression);
@@ -108,36 +116,47 @@ function transform(fileNames: string[]): void {
               (emExp.text === "EM" || emExp.text === "em") &&
               member.text === "registerSystem"
             ) {
+              const newProp = ts.factory.createPropertyAccessExpression(
+                emExp,
+                "registerSystem2"
+              );
               const fnArg = callExp.arguments[0];
               // const fnType = e.typeArguments![0];
               const nameArg = callExp.arguments[1];
               // const nameType = e.typeArguments![1];
-              // const newCall = ts.factory.createCallExpression(
-              //   propExp,
-              //   // [nameType, fnType],
-              //   [],
-              //   [nameArg, fnArg]
-              // );
+              const newCall = ts.factory.createCallExpression(
+                newProp,
+                // [nameType, fnType],
+                [],
+                [nameArg, fnArg]
+              );
+              const newStmt = ts.factory.createExpressionStatement(newCall);
+              // console.log(newCall.getFullText());
               // const newStmt = ts.factory.createExpressionStatement(newCall);
               // console.log("found reg sys");
               // console.log(
-              //   printer.printNode(ts.EmitHint.Unspecified, newCall, sourceFile)
-              // );
-              // return newStmt;
-              return (
-                `${emExp.getFullText()}.registerSystem2` +
-                `(${nameArg.getFullText().trim()}, ${fnArg.getFullText()});`
+              //   );
+              return printer.printNode(
+                ts.EmitHint.Unspecified,
+                newStmt,
+                sourceFile
               );
+              // return newStmt;
+              // return (
+              //   `${emExp.getFullText()}.registerSystem2` +
+              //   `(${nameArg.getFullText().trim()}, ${fnArg.getFullText()});`
+              // );
             }
           }
         }
       }
     } else {
-      console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+      // console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
     }
     // const leading = e.getLeadingTriviaWidth();
     // console.log(e.getFullText());
-    return e.getFullText();
+    // return e.getFullText();
+    return printer.printNode(ts.EmitHint.Unspecified, e, sourceFile);
     // return e;
   }
   function visitExp(e: ts.Expression) {
