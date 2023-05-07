@@ -1,6 +1,14 @@
 {
-  "extends": "@tsconfig/node18/tsconfig.json",
-  "compilerOptions": {},
+  "compilerOptions": {
+    "module": "commonjs",
+
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "outDir": "public/"
+  },
   "include": ["src"],
   "exclude": ["node_modules"]
 }
