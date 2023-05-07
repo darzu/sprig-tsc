@@ -34,46 +34,60 @@ function transform(fileNames: string[]): void {
   function emit(n: ts.Node) {
     return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
   }
-}
 
-function visitNode(e: ts.Node) {
-  if (ts_isSyntaxList(e)) {
-    for (let e2 of e._children) {
-      visitNode(e2);
+  function visitNode(e: ts.Node) {
+    if (ts_isSyntaxList(e)) {
+      for (let e2 of e._children) {
+        visitNode(e2);
+      }
+    } else if (e.kind === ts.SyntaxKind.EndOfFileToken) {
+      // nop
+    } else if (ts_isStatement(e)) {
+      visitStmt(e);
+    } else {
+      console.warn(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
     }
-  } else if (e.kind === ts.SyntaxKind.EndOfFileToken) {
-    // nop
-  } else if (ts_isStatement(e)) {
-    visitStmt(e);
-  } else {
-    console.warn(`unknown Node kind: ${SyntaxKindName[e.kind]}`);
   }
-}
 
-function visitStmt(e: ts.Statement) {
-  if (ts_isDeclaration(e)) {
-    // nop
-  } else if (ts.isExpressionStatement(e)) {
-    visitExp(e.expression);
-  } else {
-    console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+  function visitStmt(e: ts.Statement) {
+    if (ts_isDeclaration(e)) {
+      // nop
+    } else if (ts.isExpressionStatement(e)) {
+      visitExp(e.expression);
+    } else {
+      console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
+    }
   }
-}
-function visitExp(e: ts.Expression) {
-  if (ts.isCallExpression(e)) {
-    const e2 = e.expression;
-    if (ts.isPropertyAccessExpression(e2)) {
-      const member = e2.name;
-      const e3 = e2.expression;
-      if (ts.isIdentifier(e3)) {
-        if (e3.text === "EM" && member.text === "registerSystem") {
-          console.log("found reg sys");
+  function visitExp(e: ts.Expression) {
+    if (ts.isCallExpression(e)) {
+      const e2 = e.expression;
+      if (ts.isPropertyAccessExpression(e2)) {
+        const member = e2.name;
+        const e3 = e2.expression;
+        if (ts.isIdentifier(e3)) {
+          if (e3.text === "EM" && member.text === "registerSystem") {
+            console.log("found reg sys");
+            const fnArg = e.arguments[0];
+            // const fnType = e.typeArguments![0];
+            const nameArg = e.arguments[1];
+            // const nameType = e.typeArguments![1];
+            const newCall = ts.factory.createCallExpression(
+              e2,
+              // [nameType, fnType],
+              [],
+              [nameArg, fnArg]
+            );
+
+            console.log(
+              printer.printNode(ts.EmitHint.Unspecified, newCall, sourceFile)
+            );
+          }
         }
       }
+      // visitExp(e.expression);
+    } else {
+      console.warn(`unknown Expression kind: ${SyntaxKindName[e.kind]}`);
     }
-    // visitExp(e.expression);
-  } else {
-    console.warn(`unknown Expression kind: ${SyntaxKindName[e.kind]}`);
   }
 }
 
