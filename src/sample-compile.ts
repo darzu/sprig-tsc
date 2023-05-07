@@ -1,6 +1,6 @@
 import ts from "typescript";
 
-compile(["../samples/hello-world.ts"], {
+compile(["../samples/em-user.ts"], {
   noEmitOnError: true,
   noImplicitAny: true,
   target: ts.ScriptTarget.ES5,
