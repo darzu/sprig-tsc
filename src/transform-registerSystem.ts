@@ -3,6 +3,7 @@ import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert } from "./util.js";
 import fs from "fs";
 
+// TODO(@darzu): read these from tsconfig
 const opts: ts.CompilerOptions = {
   noEmitOnError: true,
   noImplicitAny: true,
@@ -29,33 +30,14 @@ function transform(fileNames: string[]): void {
 
   const sourceFile = program.getSourceFile(fileNames[0])!;
 
+  // TODO(@darzu): remove!
   const printer = ts.createPrinter({
-    removeComments: false,
+    removeComments: true,
     newLine: ts.NewLineKind.LineFeed,
+    noEmitHelpers: true,
   });
 
-  // for (let e of sourceFile.getChildren()) {
-  //   visitSourceFile(e);
-  // }
   const newFileStr = visitSourceFile(sourceFile);
-
-  // getFullText: return (sourceFile || this.getSourceFile()).text.substring(this.pos, this.end);
-
-  // ts.forEachChild(sourceFile, (node) => {
-  //   // console.log(`kind: ${SyntaxKindName[node.kind]}`);
-  //   // if (ts.isstatement
-  //   if (ts.isCallExpression(node)) {
-  //     console.log(`calling: ${emit(node)}`);
-  //   }
-  // });
-
-  // const newFileStr = printer.printNode(
-  //   ts.EmitHint.SourceFile,
-  //   newFile,
-  //   newFile
-  // );
-
-  // console.log(newFileStr);
 
   // console.log(emit(newFile));
   fs.writeFile(PATH_OUT, newFileStr, (err) => {
@@ -82,8 +64,11 @@ function transform(fileNames: string[]): void {
         let oldFullStart = oldStmt.pos;
         let oldStart = oldStmt.getStart(e);
         let prelude = oldTxt.substring(oldFullStart, oldStart);
-        res += prelude;
         let newStmt = visitStmt(oldStmt);
+
+        // new stmt
+        // if (newStmt.pos < 0)
+        res += prelude;
         res += printer.printNode(ts.EmitHint.Unspecified, newStmt, e);
         // res += newStmt.getText();
       } else {
@@ -93,58 +78,24 @@ function transform(fileNames: string[]): void {
     });
 
     return res;
-
-    // const stmts = e.statements;
-    // const newStmts = stmts.map((s) => visitStmt(s));
-    // const newFile = ts.factory.createSourceFile(
-    //   newStmts,
-    //   e.endOfFileToken,
-    //   e.flags
-    // );
-    // return newStmts.join("\n");
-    // TODO(@darzu): difference between update and create?
-    // const newFile = ts.factory.updateSourceFile(sourceFile, newStmts);
-    // return newStmts
-    //   .map((s) => printer.printNode(ts.EmitHint.Unspecified, s, sourceFile))
-    //   .join("\n");
-    // return printer.printNode(ts.EmitHint.Unspecified, newFile, sourceFile);
-    // return e;
-
-    // let res = "";
-    // let foo = sourceFile.getLineStarts();
-
-    // for (let s of newStmts) {
-    //   let triviaNum = s.getLeadingTriviaWidth(sourceFile);
-    //   let start = s.getStart(sourceFile);
-    //   const preLn = sourceFile.getLineAndCharacterOfPosition(start).line;
-    //   let first = s.getFirstToken(sourceFile);
-    //   if (first) {
-    //     const stmtLn = sourceFile.getLineAndCharacterOfPosition(
-    //       first.getStart()
-    //     );
-    //     console.log("foo");
-    //   }
-    //   // res +=
-    // }
-    // return res;
   }
 
   function visitStmt(e: ts.Statement): ts.Statement {
     // console.log(`visiting ${SyntaxKindName[e.kind]}`);
     if (ts_isDeclaration(e)) {
-      if (ts.isFunctionDeclaration(e)) {
-        if (e.body) {
-          const newStmts = e.body.statements.map((s) => visitStmt(s));
-          // TODO(@darzu): handle modifiers
-          // return (
-          //   `function ${e.name!}` +
-          //   `(${e.parameters.map((p) => p.getFullText()).join(",")}) {\n` +
-          //   `  ${newStmts.join("\n")}` +
-          //   `\n}\n`
-          // );
-          return e;
-        }
-      }
+      // if (ts.isFunctionDeclaration(e)) {
+      //   if (e.body) {
+      //     const newStmts = e.body.statements.map((s) => visitStmt(s));
+      //     // TODO(@darzu): handle modifiers
+      //     // return (
+      //     //   `function ${e.name!}` +
+      //     //   `(${e.parameters.map((p) => p.getFullText()).join(",")}) {\n` +
+      //     //   `  ${newStmts.join("\n")}` +
+      //     //   `\n}\n`
+      //     // );
+      //     return e;
+      //   }
+      // }
     } else if (ts.isExpressionStatement(e)) {
       // console.log("isExpressionStatement");
       // visitExp(e.expression);
@@ -175,20 +126,9 @@ function transform(fileNames: string[]): void {
                 [],
                 [nameArg, fnArg]
               );
-              // const newStmt = ts.factory.createExpressionStatement(newCall);
-              const newStmt = ts.factory.updateExpressionStatement(e, newCall);
-              // console.log(newCall.getFullText());
-              // const newStmt = ts.factory.createExpressionStatement(newCall);
-              // console.log("found reg sys");
-              // console.log(
-              //   );
-              // return printer.printNode(
-              //   ts.EmitHint.Unspecified,
-              //   newStmt,
-              //   sourceFile
-              // );
+              const newStmt = ts.factory.createExpressionStatement(newCall);
+              // const newStmt = ts.factory.updateExpressionStatement(e, newCall);
               return newStmt;
-              // return newStmt;
               // return (
               //   `${emExp.getFullText()}.registerSystem2` +
               //   `(${nameArg.getFullText().trim()}, ${fnArg.getFullText()});`
@@ -200,23 +140,9 @@ function transform(fileNames: string[]): void {
     } else {
       // console.warn(`unknown Statement kind: ${SyntaxKindName[e.kind]}`);
     }
-    // const leading = e.getLeadingTriviaWidth();
-    // console.log(e.getFullText());
-    // return e.getFullText();
-    // return printer.printNode(ts.EmitHint.Unspecified, e, sourceFile);
-    // ts.getCommentRange(
-    console.log(`trivia: ${e.getLeadingTriviaWidth()}`);
-    // ts.couldStartTrivia
-    // ts.isWhiteSpaceSingleLine
+
     return e;
     // return e;
-  }
-  function visitExp(e: ts.Expression) {
-    if (ts.isCallExpression(e)) {
-      // visitExp(e.expression);
-    } else {
-      console.warn(`unknown Expression kind: ${SyntaxKindName[e.kind]}`);
-    }
   }
 }
 

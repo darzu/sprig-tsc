@@ -13,10 +13,6 @@ if (true)
 comment
 
 */
-/*
-comment
-
-*/
 EM.registerSystem2("bar2", (foo) => console.log(foo));
 
 for (let i = 0; i < 3; i++) {
@@ -34,13 +30,10 @@ if (true) {
 // comment again
 
 // comment again and again
-// comment again
-// comment again and again
 EM.registerSystem2("bar3", (foo) => console.log(foo));
 
 irrelvantFn();
 
 function irrelvantFn() {
-    // comment
     console.log("irrelvant fn");
 }
