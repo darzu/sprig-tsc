@@ -39,6 +39,8 @@ function transform(fileNames: string[]): void {
   // }
   const newFileStr = visitSourceFile(sourceFile);
 
+  // getFullText: return (sourceFile || this.getSourceFile()).text.substring(this.pos, this.end);
+
   // ts.forEachChild(sourceFile, (node) => {
   //   // console.log(`kind: ${SyntaxKindName[node.kind]}`);
   //   // if (ts.isstatement
@@ -70,14 +72,28 @@ function transform(fileNames: string[]): void {
     const [syntaxList, endOfFileToken] = children;
     assert(ts_isSyntaxList(syntaxList));
     assert(endOfFileToken.kind === ts.SyntaxKind.EndOfFileToken);
-    const newStmts = syntaxList._children.map((e) => {
-      if (ts_isStatement(e)) {
-        return visitStmt(e);
+
+    let oldTxt = e.text;
+
+    let res = "";
+
+    syntaxList._children.forEach((oldStmt) => {
+      if (ts_isStatement(oldStmt)) {
+        let oldFullStart = oldStmt.pos;
+        let oldStart = oldStmt.getStart(e);
+        let prelude = oldTxt.substring(oldFullStart, oldStart);
+        res += prelude;
+        let newStmt = visitStmt(oldStmt);
+        res += printer.printNode(ts.EmitHint.Unspecified, newStmt, e);
+        // res += newStmt.getText();
       } else {
-        console.log(`unknown node ${SyntaxKindName[e.kind]}`);
-        return e as ts.Statement;
+        console.warn(`unknown node ${SyntaxKindName[oldStmt.kind]}`);
+        // return e as ts.Statement;
       }
     });
+
+    return res;
+
     // const stmts = e.statements;
     // const newStmts = stmts.map((s) => visitStmt(s));
     // const newFile = ts.factory.createSourceFile(
@@ -88,9 +104,9 @@ function transform(fileNames: string[]): void {
     // return newStmts.join("\n");
     // TODO(@darzu): difference between update and create?
     // const newFile = ts.factory.updateSourceFile(sourceFile, newStmts);
-    return newStmts
-      .map((s) => printer.printNode(ts.EmitHint.Unspecified, s, sourceFile))
-      .join("\n");
+    // return newStmts
+    //   .map((s) => printer.printNode(ts.EmitHint.Unspecified, s, sourceFile))
+    //   .join("\n");
     // return printer.printNode(ts.EmitHint.Unspecified, newFile, sourceFile);
     // return e;
 
