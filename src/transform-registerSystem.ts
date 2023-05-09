@@ -1,4 +1,4 @@
-import ts from "typescript";
+import ts, { TransformationContext } from "typescript";
 import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert } from "./util.js";
 import fs from "fs";
@@ -16,9 +16,68 @@ const SAMPLES_PATH = "/Users/darzu/projects/sprig-tsc/samples";
 const PATH = `${SAMPLES_PATH}/em-user.ts`;
 const PATH_OUT = `${SAMPLES_PATH}/em-user_T.ts`;
 
-transform([PATH]);
+// REFACTORS
+//  change some nodes
+//    new nodes are composed of old and new nodes
+//  printing:
+//    if node has new children, recurse
+//        if immediate parts are a mixture of old and new,
+//        need to custom print them together
+//    if not, copy-paste from old file
 
-function transform(fileNames: string[]): void {
+transformFiles([PATH]);
+
+function createLanguageServiceHost(p: ts.Program): ts.LanguageServiceHost {
+  return {
+    readFile: (path: string, encoding?: string): string | undefined => {
+      // TODO(@darzu): IMPL
+      return "";
+    },
+    fileExists: (path: string, encoding?: string): boolean => {
+      // TODO(@darzu): IMPL
+      return false;
+    },
+    getCompilationSettings: (): ts.CompilerOptions => {
+      const opts = p.getCompilerOptions();
+      opts.noLib = true;
+      return opts;
+    },
+    // getNewLine: (): string => {
+    //   return "\n";
+    // },
+
+    getScriptFileNames: (): string[] => {
+      return p.getSourceFiles().map((f) => f.fileName);
+    },
+
+    getScriptVersion: (fileName: string): string => {
+      return "0";
+    },
+
+    getScriptSnapshot: (fileName: string): ts.IScriptSnapshot => {
+      const f = p.getSourceFile(fileName)!;
+      return {
+        getLength: () => f.getFullText().length,
+        getText: () => f.getFullText(),
+        getChangeRange: () => undefined,
+      };
+    },
+
+    getCurrentDirectory: (): string => {
+      return ".";
+    },
+
+    getDefaultLibFileName: (options: ts.CompilerOptions): string => {
+      return "";
+    },
+
+    // useCaseSensitiveFileNames: (): boolean => {
+    //   return true;
+    // },
+  };
+}
+
+function transformFiles(fileNames: string[]): void {
   console.log("running transform-registerSystem 3");
 
   let program = ts.createProgram(fileNames, opts);
@@ -30,14 +89,53 @@ function transform(fileNames: string[]): void {
 
   const sourceFile = program.getSourceFile(fileNames[0])!;
 
+  const lsHost = createLanguageServiceHost(program);
+  const ls = ts.createLanguageService(lsHost);
+  // ls.getEditsForRefactor(
+  // const edits = textChanges.ChangeTracker.with(context, t => doChange(context, context.file, interactiveRefactorArguments.targetFile, context.program, statements, t, context.host, context.preferences));
+  // changes.insertNodesAfter(targetFile,
+  // const edits = textChanges.ChangeTracker.with(context, t => {
+  //   t.replaceNode(file, func.body, body);
+  // });
+  // forEachLeadingCommentRange
+  // FileTextChanges
+  // ts.unchangedTextChangeRange
+  // ts.updateSourceFile(
+  // ts.getAdjustedStartPosition
+  // LeadingTriviaOption
+  // skipTrivia
+  // type Change = ReplaceWithSingleNode | ReplaceWithMultipleNodes | RemoveNode | ChangeText;
+  // FileTextChanges
+  // ls.getEditsForRefactor(
+
   // TODO(@darzu): remove!
   const printer = ts.createPrinter({
-    removeComments: true,
+    // removeComments: true,
+    // removeComments: false,
     newLine: ts.NewLineKind.LineFeed,
-    noEmitHelpers: true,
+    // noEmitHelpers: true,
   });
 
-  const newFileStr = visitSourceFile(sourceFile);
+  // const newFileStr = visitSourceFile(sourceFile);
+  const transformerFactory = (context: TransformationContext) => {
+    const transformer = (n: ts.Node): ts.Node => {
+      if (ts.isMemberName(n) && n.text === "registerSystem") {
+        return ts.factory.createIdentifier(n.text + "2");
+      }
+      // return n;
+      return ts.visitEachChild(n, transformer, context);
+    };
+    return transformer;
+  };
+  const tRes = ts.transform(sourceFile, [transformerFactory]);
+  // tRes.emitNodeWithNotification(ts.EmitHint.Unspecified, tRes.transformed[0], (
+  let newFile = tRes.transformed[0] as ts.SourceFile;
+
+  const newFileStr = printer.printNode(
+    ts.EmitHint.Unspecified,
+    newFile,
+    newFile
+  );
 
   // console.log(emit(newFile));
   fs.writeFile(PATH_OUT, newFileStr, (err) => {
@@ -47,6 +145,11 @@ function transform(fileNames: string[]): void {
   // function emit(n: ts.Node) {
   //   return printer.printNode(ts.EmitHint.Unspecified, n, sourceFile);
   // }
+
+  // ts.transform
+
+  // TODO(@darzu): does recursive traverse?
+  // ts.forEachChild
 
   function visitSourceFile(e: ts.SourceFile): string {
     let children = e.getChildren();
@@ -60,11 +163,14 @@ function transform(fileNames: string[]): void {
     let res = "";
 
     syntaxList._children.forEach((oldStmt) => {
-      if (ts_isStatement(oldStmt)) {
+      if (ts.isStatement(oldStmt)) {
         let oldFullStart = oldStmt.pos;
         let oldStart = oldStmt.getStart(e);
         let prelude = oldTxt.substring(oldFullStart, oldStart);
         let newStmt = visitStmt(oldStmt);
+
+        const isChanged = newStmt.pos < 0;
+        // TODO(@darzu): printer needs to use info from the old one
 
         // new stmt
         // if (newStmt.pos < 0)
@@ -146,6 +252,13 @@ function transform(fileNames: string[]): void {
   }
 }
 
+// interface TsVisitor {
+//   visit: (n: ts.Node) => ts.Node | undefined;
+// }
+// function createVisitor() {
+//   // TODO(@darzu): IMPL
+// }
+
 // TODO(@darzu): Move these into TypeScript?
 function ts_isDeclaration(e: ts.Node): e is ts.Declaration {
   return (
@@ -153,19 +266,77 @@ function ts_isDeclaration(e: ts.Node): e is ts.Declaration {
     // TODO(@darzu): add more kinds
   );
 }
-function ts_isStatement(e: ts.Node): e is ts.Statement {
-  // TODO(@darzu): annoying this doesn't exist already
-  return (
-    e.kind === ts.SyntaxKind.ImportDeclaration ||
-    e.kind === ts.SyntaxKind.IfStatement ||
-    e.kind === ts.SyntaxKind.ForStatement ||
-    e.kind === ts.SyntaxKind.FunctionDeclaration ||
-    e.kind === ts.SyntaxKind.ExpressionStatement
-    // TODO(@darzu): add more kinds
-  );
-}
+// ts.isstatementkin
+// isStatement
+// function ts_isStatement(e: ts.Node): e is ts.Statement {
+//   // TODO(@darzu): annoying this doesn't exist already
+//   return (
+//     e.kind === ts.SyntaxKind.ImportDeclaration ||
+//     e.kind === ts.SyntaxKind.IfStatement ||
+//     e.kind === ts.SyntaxKind.ForStatement ||
+//     e.kind === ts.SyntaxKind.FunctionDeclaration ||
+//     e.kind === ts.SyntaxKind.ExpressionStatement
+//     // TODO(@darzu): add more kinds
+//   );
+// }
 function ts_isSyntaxList(e: ts.Node): e is ts.SyntaxList {
   return e.kind === ts.SyntaxKind.SyntaxList;
 }
 
-// ts.SyntaxKind.statement
+// TODO(@darzu): copied out of internal TypeScript
+// public replaceRange(sourceFile: SourceFile, range: TextRange, newNode: Node, options: InsertNodeOptions = {}): void {
+//   this.changes.push({ kind: ChangeKind.ReplaceWithSingleNode, sourceFile, range, options, node: newNode });
+// }
+// public replaceNode(sourceFile: SourceFile, oldNode: Node, newNode: Node, options: ChangeNodeOptions = useNonAdjustedPositions): void {
+//   this.replaceRange(sourceFile, getAdjustedRange(sourceFile, oldNode, oldNode, options), newNode, options);
+// }
+
+function copyLeadingComments(
+  sourceNode: ts.Node,
+  targetNode: ts.Node,
+  sourceFile: ts.SourceFile,
+  commentKind?: ts.CommentKind,
+  hasTrailingNewLine?: boolean
+) {
+  ts.forEachLeadingCommentRange(
+    sourceFile.text,
+    sourceNode.pos,
+    getAddCommentsFunction(
+      targetNode,
+      sourceFile,
+      commentKind,
+      hasTrailingNewLine,
+      ts.addSyntheticLeadingComment
+    )
+  );
+}
+function getAddCommentsFunction(
+  targetNode: ts.Node,
+  sourceFile: ts.SourceFile,
+  commentKind: ts.CommentKind | undefined,
+  hasTrailingNewLine: boolean | undefined,
+  cb: (
+    node: ts.Node,
+    kind: ts.CommentKind,
+    text: string,
+    hasTrailingNewLine?: boolean
+  ) => void
+) {
+  return (pos: number, end: number, kind: ts.CommentKind, htnl: boolean) => {
+    if (kind === ts.SyntaxKind.MultiLineCommentTrivia) {
+      // Remove leading /*
+      pos += 2;
+      // Remove trailing */
+      end -= 2;
+    } else {
+      // Remove leading //
+      pos += 2;
+    }
+    cb(
+      targetNode,
+      commentKind || kind,
+      sourceFile.text.slice(pos, end),
+      hasTrailingNewLine !== undefined ? hasTrailingNewLine : htnl
+    );
+  };
+}
