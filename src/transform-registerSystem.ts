@@ -1,4 +1,9 @@
-import ts, { TransformationContext } from "typescript";
+import ts, {
+  TransformationContext,
+  isBlock,
+  isIdentifier,
+  isSourceFile,
+} from "typescript";
 import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert } from "./util.js";
 import fs from "fs";
@@ -107,20 +112,105 @@ function transformFiles(fileNames: string[]): void {
   // type Change = ReplaceWithSingleNode | ReplaceWithMultipleNodes | RemoveNode | ChangeText;
   // FileTextChanges
   // ls.getEditsForRefactor(
+  // FileTextChanges
+  // ts.textChangeRangeNewSpan;
+  // TextChange
 
+  interface PrintHandlersExt extends ts.PrintHandlers {
+    onEmitSourceMapOfNode?: (
+      hint: ts.EmitHint,
+      node: ts.Node,
+      emitCallback: (hint: ts.EmitHint, node: ts.Node) => void
+    ) => void;
+    onEmitSourceMapOfToken?: (
+      node: ts.Node | undefined,
+      token: ts.SyntaxKind,
+      writer: (s: string) => void,
+      pos: number,
+      emitCallback: (
+        token: ts.SyntaxKind,
+        writer: (s: string) => void,
+        pos: number
+      ) => number
+    ) => number;
+    onEmitSourceMapOfPosition?: (pos: number) => void;
+    onSetSourceFile?: (node: ts.SourceFile) => void;
+    onBeforeEmitNode?: (node: ts.Node | undefined) => void;
+    onAfterEmitNode?: (node: ts.Node | undefined) => void;
+    onBeforeEmitNodeArray?: (nodes: ts.NodeArray<any> | undefined) => void;
+    onAfterEmitNodeArray?: (nodes: ts.NodeArray<any> | undefined) => void;
+    onBeforeEmitToken?: (node: ts.Node) => void;
+    onAfterEmitToken?: (node: ts.Node) => void;
+  }
+
+  // TODO(@darzu): NOTE, ts inner emit fn: pipelineEmitWithHintWorker
+
+  const printHandlers: PrintHandlersExt = {
+    // onEmitNode: undefined,
+    onEmitNode(hint, node, emitCallback) {
+      const isNew = node.pos === -1;
+      const isChanged = !!(node as any).original;
+      // set up or track state prior to emitting the node...
+      // if (node.parent && ts.isIfStatement(node.parent))
+      if (isIdentifier(node) && node.text === "registerSystem2") {
+        // TODO(@darzu):
+        node;
+      }
+      if (isSourceFile(node)) {
+        node;
+        // .original
+        // .transformFlags
+      }
+      if (!isNew && !isChanged) {
+        // hint = ts.EmitHint.EmbeddedStatement;
+      }
+      // if (node.pos >= 0) hint = ts.EmitHint.EmbeddedStatement;
+      emitCallback(hint, node);
+      // restore state after emitting the node...
+
+      if (!isNew && !isChanged) {
+        node;
+      }
+    },
+    // onBeforeEmitNode: (node) => {
+    //   // ts.EmitHint
+    // },
+    onAfterEmitNode: (node) => {
+      if (node && isIdentifier(node) && node.text === "registerSystem2") {
+        // TODO(@darzu):
+        node;
+      }
+    },
+    substituteNode: undefined,
+  };
   // TODO(@darzu): remove!
-  const printer = ts.createPrinter({
-    // removeComments: true,
-    // removeComments: false,
-    newLine: ts.NewLineKind.LineFeed,
-    // noEmitHelpers: true,
-  });
+  const printer = ts.createPrinter(
+    {
+      // removeComments: true,
+      // removeComments: false,
+      newLine: ts.NewLineKind.LineFeed,
+      // noEmitHelpers: true,
+      // neverAsciiEscape: true,
+      preserveSourceNewlines: true,
+      // terminateUnterminatedLiterals: true
+    } as ts.PrinterOptions,
+    printHandlers
+  );
+
+  // onAfterEmitNode
+  printer;
 
   // const newFileStr = visitSourceFile(sourceFile);
   const transformerFactory = (context: TransformationContext) => {
     const transformer = (n: ts.Node): ts.Node => {
+      // context.enableSubstitution(
+      // context.requestEmitHelper(
+      // emit helpers are for
+      // context.
+      // context.onEmitNode
       if (ts.isMemberName(n) && n.text === "registerSystem") {
-        return ts.factory.createIdentifier(n.text + "2");
+        let newN = ts.factory.createIdentifier(n.text + "2");
+        return newN;
       }
       // return n;
       return ts.visitEachChild(n, transformer, context);
@@ -137,9 +227,14 @@ function transformFiles(fileNames: string[]): void {
     newFile
   );
 
+  console.log("writting..");
+
   // console.log(emit(newFile));
   fs.writeFile(PATH_OUT, newFileStr, (err) => {
-    console.error(err?.message);
+    if (err) {
+      console.error("WRITE ERROR:");
+      console.error(err?.message);
+    }
   });
 
   // function emit(n: ts.Node) {
@@ -291,6 +386,31 @@ function ts_isSyntaxList(e: ts.Node): e is ts.SyntaxList {
 //   this.replaceRange(sourceFile, getAdjustedRange(sourceFile, oldNode, oldNode, options), newNode, options);
 // }
 
+// ts.changesToText
+
+export interface TextChange {
+  span: ts.TextSpan;
+  newText: string;
+}
+export interface FileTextChanges {
+  fileName: string;
+  textChanges: readonly TextChange[];
+  isNewFile?: boolean;
+}
+
+// span: start & len
+// range: start & end
+
+// changesToText.getTextChangesFromChanges:
+//    group changes by file
+//    sort changes by span
+//      check none overlap
+//
+
+// function atLineStart() {
+//   return ts.getLineStartPositionForPosition(pos, sourceFile) === pos
+// }
+
 function copyLeadingComments(
   sourceNode: ts.Node,
   targetNode: ts.Node,
@@ -340,3 +460,26 @@ function getAddCommentsFunction(
     );
   };
 }
+
+// TODO(@darzu): example emit:
+/*
+function emitIfStatement(node: IfStatement) {
+        const openParenPos = emitTokenWithComment(SyntaxKind.IfKeyword, node.pos, writeKeyword, node);
+        writeSpace();
+        emitTokenWithComment(SyntaxKind.OpenParenToken, openParenPos, writePunctuation, node);
+        emitExpression(node.expression);
+        emitTokenWithComment(SyntaxKind.CloseParenToken, node.expression.end, writePunctuation, node);
+        emitEmbeddedStatement(node, node.thenStatement);
+        if (node.elseStatement) {
+            writeLineOrSpace(node, node.thenStatement, node.elseStatement);
+            emitTokenWithComment(SyntaxKind.ElseKeyword, node.thenStatement.end, writeKeyword, node);
+            if (node.elseStatement.kind === SyntaxKind.IfStatement) {
+                writeSpace();
+                emit(node.elseStatement);
+            }
+            else {
+                emitEmbeddedStatement(node, node.elseStatement);
+            }
+        }
+    }
+*/
