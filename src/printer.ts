@@ -2,6 +2,14 @@ import ts from "typescript";
 import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert, flatten, range } from "./util.js";
 
+/* NOTES: 
+  We don't handle indentation. The format should clean that up. 
+  Our most important goal is that nothing is lost during the printing, especially comments.
+  To really handle indent right, we've basically got to duplicate the formatter.
+
+  A lot of this could be made more robust if we had a AST view that included comments as their own nodes.
+*/
+
 export function mkPrinter() {
   return {
     emitFile,
