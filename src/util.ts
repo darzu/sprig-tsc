@@ -6,3 +6,7 @@ export function assert(cond: any, msg?: string): asserts cond {
 export function flatten<T>(ts: T[][]): T[] {
   return ts.reduce((p, n) => [...p, ...n], [] as T[]);
 }
+
+export function range(length: number): number[] {
+  return ((new Array(length) as any).fill(null) as number[]).map((_, i) => i);
+}
