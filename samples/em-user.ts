@@ -4,8 +4,6 @@ console.log("irrelvant line");
 
 EM.registerSystem((foo) => console.log(foo), "bar");
 
-
-
 if (true) console.log("irrelvant line 2");
 
 /*

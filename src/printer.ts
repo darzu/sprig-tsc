@@ -63,9 +63,11 @@ function emitExp(n: ts.Expression): string {
   }
 }
 function emitOld(n: ts.Node): string {
-  return n.getFullText();
+  let r = n.getFullText();
+  if (r.startsWith("\n")) r = r.slice(1);
+  // console.log(JSON.stringify(r));
+  return r;
 }
-
 function isUnchanged(n: ts.Node): boolean {
   return !isNew(n) && !isUpdated(n);
 }
