@@ -32,6 +32,24 @@ export function createCompilerHost(rootDir: string): CompilerHost {
   function relativizePath(path: string) {
     assert(!path.startsWith("/"), `Can't handle absolute path: ${path}`);
     assert(!path.startsWith("../"), `TODO: "../" paths: ${path}`);
+
+    // TODO(@darzu): HACK! For some wierd reason TypeScript won't add the "lib." before the name
+    // dom.d.ts
+    if (path.startsWith("src/external/ts-libs/")) {
+      path = path.toLowerCase();
+      if (!path.endsWith(".d.ts")) {
+        if (path.endsWith(".ts")) path = path.slice(0, path.length - 3);
+        if (path.endsWith(".tsx")) path = path.slice(0, path.length - 4);
+        path = path + ".d.ts";
+      }
+      const start = path.slice(0, "src/external/ts-libs/".length);
+      const rest = path.slice("src/external/ts-libs/".length);
+      if (!rest.startsWith("lib.")) {
+        path = start + "lib." + rest;
+      }
+      console.log(`LIB SLICE: ${path}`);
+    }
+
     if (path.startsWith("./")) return path.slice(2);
     return path;
   }
@@ -40,6 +58,7 @@ export function createCompilerHost(rootDir: string): CompilerHost {
       !path.startsWith("./"),
       `Need to relativizePath before calling realPath`
     );
+    assert(rootDir.endsWith("/"));
     return rootDir + path;
   }
 
@@ -49,23 +68,29 @@ export function createCompilerHost(rootDir: string): CompilerHost {
     onError?: ((message: string) => void) | undefined,
     shouldCreateNewSourceFile?: boolean | undefined
   ): ts.SourceFile | undefined {
-    console.log(`SRC: ${fileName}`);
+    // console.log(`SRC: ${fileName}`);
     assert(!shouldCreateNewSourceFile, `TODO: shouldCreateNewSourceFile`);
-    if (!fileExists(fileName)) return undefined;
-    const txt = "console.log('hello world!');"; // TODO(@darzu): IMPL!
+    // if (!fileExists(fileName)) return undefined;
+    const path = realPath(relativizePath(fileName));
+    const exists = fsExistsHelper(path, true, false);
+    console.log(`READ: ${path} (${exists})`);
+    if (!exists) return undefined;
+    const txt = fsReadHelper(path);
+    // const txt = "console.log('hello world!');"; // TODO(@darzu): IMPL!
     return ts.createSourceFile(fileName, txt, languageVersionOrOptions);
   }
   function getDefaultLibFileName(options: ts.CompilerOptions): string {
     console.log(`LIB: ${options.target}`);
     // TODO(@darzu): does this need to be w/ a path?
     const res = ts.getDefaultLibFileName(options);
+    // const res =
     console.log(`LIB NAME: ${res}`);
     return res;
     // throw "TODO 2";
   }
   function getDefaultLibLocation() {
     console.log(`LIB LOC!`);
-    return `external/ts-libs`;
+    return `src/external/ts-libs`;
   }
   function writeFile(
     fileName: string,
@@ -84,9 +109,9 @@ export function createCompilerHost(rootDir: string): CompilerHost {
     return "./";
   }
   function getCanonicalFileName(fileName: string): string {
-    console.log(`CANNON: ${fileName}`);
+    // console.log(`CANNON: ${fileName}`);
     let res = relativizePath(fileName);
-    console.log(`RES: ${res}`);
+    // console.log(`RES: ${res}`);
     return res;
   }
   function useCaseSensitiveFileNames(): boolean {
@@ -96,17 +121,17 @@ export function createCompilerHost(rootDir: string): CompilerHost {
     return "\n";
   }
   function fileExists(path: string): boolean {
-    console.log(`EXISTS F? ${path}`);
+    // console.log(`EXISTS F? ${path}`);
     path = realPath(relativizePath(path));
     const res = fsExistsHelper(path, true, false);
-    console.log(`RES: ${path} ${res}`);
+    // console.log(`RES: ${path} ${res}`);
     return res;
   }
   function directoryExists(path: string): boolean {
-    console.log(`EXISTS D? ${path}`);
+    // console.log(`EXISTS D? ${path}`);
     path = realPath(relativizePath(path));
     const res = fsExistsHelper(path, false, true);
-    console.log(`RES: ${res}`);
+    // console.log(`RES: ${res}`);
     return res;
   }
   function readFile(fileName: string): string | undefined {
@@ -127,6 +152,10 @@ export function createCompilerHost(rootDir: string): CompilerHost {
     readFile,
   };
   return res;
+}
+
+function fsReadHelper(path: string): string {
+  return fs.readFileSync(path, { encoding: "utf-8" });
 }
 
 function fsExistsHelper(

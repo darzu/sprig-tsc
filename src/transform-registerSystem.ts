@@ -67,6 +67,9 @@ async function transformFiles() {
   // const fileNames = [`/Users/darzu/sprig/src/ld53/score.ts`];
   const fileNames = [`./src/ld53/score.ts`];
 
+  console.log(`opts:`);
+  console.dir(compilerOpts);
+
   let program = ts.createProgram(fileNames, compilerOpts, host);
 
   // return;
@@ -74,8 +77,11 @@ async function transformFiles() {
   const diags = ts.getPreEmitDiagnostics(program);
   let diags2 = diags.filter((d) => !!d.file);
   if (diags.length) {
-    console.log("pre-emit errors:");
-    for (let d of diags) {
+    const max = 200;
+    console.log(
+      `pre-emit errors (${Math.min(diags.length, max)}/${diags.length}):`
+    );
+    for (let d of diags.slice(0, max)) {
       console.log(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
     }
   }
