@@ -1,13 +1,15 @@
-import ts from "typescript";
 import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert, flatten, range } from "./util.js";
+import ts from "typescript";
+// import * as ts from "../../TypeScript/src/compiler/_namespaces/ts";
 
 /* NOTES: 
-  We don't handle indentation. The format should clean that up. 
-  Our most important goal is that nothing is lost during the printing, especially comments.
-  To really handle indent right, we've basically got to duplicate the formatter.
-
-  A lot of this could be made more robust if we had a AST view that included comments as their own nodes.
+  - We don't handle indentation. The format should clean that up. 
+  - Our most important goal is that nothing is lost during the printing, especially comments.
+    - to this end, if an ast node hasn't been updated by a refactor, we emit _exactly_ the old text
+    - and if a node has been updated, we try to reuse exactly as many sub parts as we can.
+  - To really handle indent right, we've basically got to duplicate the formatter.
+  - A lot of this could be made more robust if we had a AST view that included comments as their own nodes.
 */
 
 export function mkPrinter() {
@@ -74,11 +76,11 @@ function emitParameter(n: ts.ParameterDeclaration): string {
 function emitExp(n: ts.Expression): string {
   if (isUnchanged(n)) return emitOld(n);
   if (ts.isCallExpression(n)) {
-    const fn = emitExp(n.expression); // fn has trivia
+    const fn = emitExp(n.expression); // fn has the trivia
     const args = n.arguments.map(emitExp);
     return `${fn}(${args.join(", ")})`;
   } else if (ts.isPropertyAccessExpression(n)) {
-    const obj = emitExp(n.expression); // obj has trivia
+    const obj = emitExp(n.expression); // obj has the trivia
     return `${obj}.${n.name.text}`;
   } else {
     throw `Unknown exp kind: ${SyntaxKindName[n.kind]}`;
