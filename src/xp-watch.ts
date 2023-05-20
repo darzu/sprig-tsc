@@ -1,4 +1,8 @@
 import ts from "typescript";
+import { registerSystemTransformer } from "./transform-registerSystem.js";
+import { assert } from "./util.js";
+import { mkPrinter } from "./printer.js";
+import { promises as fs } from "fs";
 
 const SPRIG_PATH = "/Users/darzu/sprig";
 const THIS_PATH = "/Users/darzu/projects/sprig-tsc";
@@ -9,7 +13,7 @@ const formatHost: ts.FormatDiagnosticsHost = {
   getNewLine: () => ts.sys.newLine,
 };
 
-function watchMain() {
+async function watchMain() {
   const configPath = ts.findConfigFile(
     /*searchPath*/ SPRIG_PATH,
     // /*searchPath*/ THIS_PATH,
@@ -43,8 +47,20 @@ function watchMain() {
     {},
     ts.sys,
     createProgram,
-    reportDiagnostic,
-    reportWatchStatusChanged
+    function reportDiagnostic(diagnostic: ts.Diagnostic) {
+      console.error(
+        "Error",
+        diagnostic.code,
+        ":",
+        ts.flattenDiagnosticMessageText(
+          diagnostic.messageText,
+          formatHost.getNewLine()
+        )
+      );
+    },
+    function reportWatchStatusChanged(diagnostic: ts.Diagnostic) {
+      console.info(ts.formatDiagnostic(diagnostic, formatHost));
+    }
   );
 
   // You can technically override any given hook on the host, though you probably
@@ -76,7 +92,7 @@ function watchMain() {
   const program = watcher.getProgram().getProgram();
 
   const diags = ts.getPreEmitDiagnostics(program);
-  let diags2 = diags.filter((d) => !!d.file);
+  // let diags2 = diags.filter((d) => !!d.file);
   if (diags.length) {
     const max = 200;
     console.log(
@@ -85,27 +101,33 @@ function watchMain() {
     for (let d of diags.slice(0, max)) {
       console.log(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
     }
+    throw "errors";
   }
-}
 
-function reportDiagnostic(diagnostic: ts.Diagnostic) {
-  console.error(
-    "Error",
-    diagnostic.code,
-    ":",
-    ts.flattenDiagnosticMessageText(
-      diagnostic.messageText,
-      formatHost.getNewLine()
-    )
+  const sourceFiles = [...program.getSourceFiles()].filter(
+    (f) => !f.fileName.endsWith(".d.ts")
+    // && f.fileName.includes("sprig/src/")
   );
-}
+  // .slice(0, 10);
 
-/**
- * Prints a diagnostic every time the watch status changes.
- * This is mainly for messages like "Starting compilation" or "Compilation completed".
- */
-function reportWatchStatusChanged(diagnostic: ts.Diagnostic) {
-  console.info(ts.formatDiagnostic(diagnostic, formatHost));
+  const transformerFactory = registerSystemTransformer;
+  const transformed = ts.transform(sourceFiles, [transformerFactory]);
+
+  assert(transformed.transformed.length);
+  // let newFile = transformed.transformed[0] as ts.SourceFile;
+
+  const printer = mkPrinter();
+
+  console.log("writting..");
+  for (let i = 0; i < sourceFiles.length; i++) {
+    const oldFile = sourceFiles[i];
+    const newFile = transformed.transformed[i] as ts.SourceFile;
+    console.log(`writing ${newFile.fileName}`);
+    const newFileStr = printer.emitFile(newFile).join("\n");
+    await fs.writeFile(newFile.fileName, newFileStr);
+  }
+
+  watcher.close();
 }
 
 watchMain();

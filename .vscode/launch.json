@@ -9,9 +9,14 @@
       "request": "launch",
       "name": "Launch Program",
       "skipFiles": ["<node_internals>/**"],
-      "program": "${workspaceFolder}/public/transform-registerSystem.js",
-      "preLaunchTask": "tsc: build - tsconfig.json"
+      "program": "${workspaceFolder}/public/xp-watch.js",
+      "preLaunchTask": "tsc: build - tsconfig.json",
       // "outFiles": ["${workspaceFolder}/public/**/*.js"]
+      "runtimeArgs": ["--preserve-symlinks"],
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**"
+        // "!**/node_modules/**"
+      ]
     }
   ]
 }
