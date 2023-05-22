@@ -134,7 +134,7 @@ async function watchMain() {
       console.log(`updating ${newFile.fileName}`);
       await fs.writeFile(newFile.fileName, newFileStr);
       numUpdated++;
-      if (numUpdated > 0) {
+      if (numUpdated > 5) {
         break;
       }
     }
