@@ -92,7 +92,6 @@ async function watchMain() {
   const program = watcher.getProgram().getProgram();
 
   const diags = ts.getPreEmitDiagnostics(program);
-  // let diags2 = diags.filter((d) => !!d.file);
   if (diags.length) {
     const max = 200;
     console.log(
@@ -113,18 +112,32 @@ async function watchMain() {
   const transformerFactory = registerSystemTransformer;
   const transformed = ts.transform(sourceFiles, [transformerFactory]);
 
+  const program2 = watcher.getProgram().getProgram();
+
+  const diags2 = ts.getPreEmitDiagnostics(program2);
+  if (diags2.length) {
+    throw "errors";
+  }
+
   assert(transformed.transformed.length);
   // let newFile = transformed.transformed[0] as ts.SourceFile;
 
   const printer = mkPrinter();
 
   console.log("writting..");
+  let numUpdated = 0;
   for (let i = 0; i < sourceFiles.length; i++) {
     const oldFile = sourceFiles[i];
     const newFile = transformed.transformed[i] as ts.SourceFile;
-    console.log(`writing ${newFile.fileName}`);
     const newFileStr = printer.emitFile(newFile).join("\n");
-    await fs.writeFile(newFile.fileName, newFileStr);
+    if (newFileStr !== oldFile.getFullText()) {
+      console.log(`updating ${newFile.fileName}`);
+      await fs.writeFile(newFile.fileName, newFileStr);
+      numUpdated++;
+      if (numUpdated > 0) {
+        break;
+      }
+    }
   }
 
   watcher.close();

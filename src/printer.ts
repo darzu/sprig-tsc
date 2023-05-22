@@ -40,6 +40,13 @@ function getOriginalLeadingTrivia(n: ts.Node): string {
   }
   return "";
 }
+const tsKeywordToStr: Partial<Record<ts.SyntaxKind, string>> = {
+  [ts.SyntaxKind.ExportKeyword]: "export",
+};
+function emitMod(m: ts.Modifier): string {
+  assert(m.kind in tsKeywordToStr, `TODO: emitMod ${SyntaxKindName[m.kind]}`);
+  return tsKeywordToStr[m.kind]!;
+}
 function emitStmt(n: ts.Statement): string[] {
   if (isUnchanged(n)) return [emitOld(n)];
   if (ts.isIfStatement(n)) {
@@ -49,18 +56,28 @@ function emitStmt(n: ts.Statement): string[] {
     return [trivia + `if (${cond})`, ...body];
   } else if (ts.isFunctionDeclaration(n)) {
     const trivia = getOriginalLeadingTrivia(n);
-    const mods = ""; // TODO(@darzu): IMPL! export, async, etc
+    let mods: string[] = [];
+    if (n.modifiers) {
+      for (let m of n.modifiers) {
+        assert(ts.isModifier(m), `TODO: impl decoraters`);
+        mods.push(emitMod(m));
+      }
+    }
+    const modStr = mods.join(" ") + (mods.length ? " " : "");
     const name = emitIdentifier(n.name);
     const params = n.parameters.map(emitParameter);
     assert(n.body, `TODO: impl fn without body?`);
     const body = emitBlock(n.body!);
-    return [trivia + `${mods}function ${name}(${params.join(", ")})`, ...body];
+    return [
+      trivia + `${modStr}function ${name}(${params.join(", ")})`,
+      ...body,
+    ];
   } else if (ts.isExpressionStatement(n)) {
     return [emitExp(n.expression)];
   } else if (ts.isBlock(n)) {
     return [...emitBlock(n)];
   } else {
-    throw `Unknown stmt kind: ${SyntaxKindName[n.kind]}`;
+    throw new Error(`Unknown stmt kind: ${SyntaxKindName[n.kind]}`);
   }
 }
 function emitBlock(n: ts.Block): string[] {
@@ -71,7 +88,7 @@ function emitBlock(n: ts.Block): string[] {
 }
 function emitParameter(n: ts.ParameterDeclaration): string {
   if (isUnchanged(n)) return emitOld(n);
-  throw `TODO: emitParameter`;
+  throw new Error(`TODO: emitParameter`);
 }
 function emitExp(n: ts.Expression): string {
   if (isUnchanged(n)) return emitOld(n);
@@ -82,8 +99,16 @@ function emitExp(n: ts.Expression): string {
   } else if (ts.isPropertyAccessExpression(n)) {
     const obj = emitExp(n.expression); // obj has the trivia
     return `${obj}.${n.name.text}`;
+  } else if (ts.isArrowFunction(n)) {
+    assert(!n.modifiers, `TODO: impl arrow fn mods`);
+    const params = n.parameters.map(emitParameter);
+    assert(n.body, `TODO: impl fn without body?`);
+    let body: string;
+    if (ts.isBlock(n.body)) body = emitBlock(n.body).join("\n");
+    else body = emitExp(n.body);
+    return `(${params.join(", ")}) => ${body}`;
   } else {
-    throw `Unknown exp kind: ${SyntaxKindName[n.kind]}`;
+    throw Error(`Unknown exp kind: ${SyntaxKindName[n.kind]}`);
   }
 }
 function emitOld(n: ts.Node): string {
