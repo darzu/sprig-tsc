@@ -129,7 +129,7 @@ async function watchMain() {
   for (let i = 0; i < sourceFiles.length; i++) {
     const oldFile = sourceFiles[i];
     const newFile = transformed.transformed[i] as ts.SourceFile;
-    const newFileStr = printer.emitFile(newFile).join("\n");
+    const newFileStr = printer.emitFile(newFile); //.join("\n");
     if (newFileStr !== oldFile.getFullText()) {
       console.log(`updating ${newFile.fileName}`);
       await fs.writeFile(newFile.fileName, newFileStr);

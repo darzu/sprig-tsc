@@ -18,10 +18,9 @@ export function mkPrinter() {
   };
 }
 
-function emitFile(n: ts.SourceFile): string[] {
-  if (isUnchanged(n)) return [emitOld(n)];
-  let res: string[] = emitStmtList(n.statements);
-  return res;
+function emitFile(n: ts.SourceFile): string {
+  if (isUnchanged(n)) return emitOld(n);
+  return emitStmtList(n.statements);
 }
 function emitIdentifier(n?: ts.Identifier): string {
   // TODO(@darzu): ever need to do something more complex?
@@ -44,18 +43,18 @@ function emitMod(m: ts.Modifier): string {
   assert(m.kind in tsKeywordToStr, `TODO: emitMod ${SyntaxKindName[m.kind]}`);
   return tsKeywordToStr[m.kind]!;
 }
-function emitStmt(n: ts.Statement): string[] {
+function emitStmt(n: ts.Statement): string {
   // TODO(@darzu): DBG
   // if (isUnchanged(n) && n.getFullText().includes("CONFIGURABLE")) {
   //   // what to do
   //   let foo = 3;
   // }
-  if (isUnchanged(n)) return [emitOld(n)];
+  if (isUnchanged(n)) return emitOld(n);
   if (ts.isIfStatement(n)) {
     const trivia = getOriginalLeadingTrivia(n);
     const cond = emitExp(n.expression);
     const body = emitStmt(n.thenStatement);
-    return [trivia + `if (${cond})`, ...body];
+    return trivia + `if (${cond}) ${body}`;
   } else if (ts.isFunctionDeclaration(n)) {
     const trivia = getOriginalLeadingTrivia(n);
     let mods: string[] = [];
@@ -70,47 +69,49 @@ function emitStmt(n: ts.Statement): string[] {
     const params = n.parameters.map(emitParameter);
     assert(n.body, `TODO: impl fn without body?`);
     const body = emitBlock(n.body!);
-    return [
-      trivia + `${modStr}function ${name}(${params.join(", ")})`,
-      ...body,
-    ];
+    return trivia + `${modStr}function ${name}(${params.join(", ")}) ${body}`;
   } else if (ts.isExpressionStatement(n)) {
-    return [emitExp(n.expression)];
+    return emitExp(n.expression);
   } else if (ts.isBlock(n)) {
-    return [...emitBlock(n)];
+    return emitBlock(n);
   } else {
     throw new Error(`Unknown stmt kind: ${SyntaxKindName[n.kind]}`);
   }
 }
-function emitStmtList(ns: ts.NodeArray<ts.Statement>): string[] {
-  if (ns.length === 0) return [];
-  let stmts: string[] = [];
-  let lastEndLine = -2;
+function emitStmtList(ns: ts.NodeArray<ts.Statement>): string {
+  if (ns.length === 0) return "";
+  let res = "";
+  // let lastEndLine = -2;
   const src = ns[0].getSourceFile();
   for (let n of ns) {
-    let startLn = -1;
-    let endLn = -1;
-    if (isUnchanged(n)) {
-      startLn = ts.getLineAndCharacterOfPosition(src, n.getFullStart()).line;
-      endLn = ts.getLineAndCharacterOfPosition(src, n.getEnd()).line;
-    }
+    // let startLn = -1;
+    // let endLn = -1;
+    // if (isUnchanged(n)) {
+    //   startLn = ts.getLineAndCharacterOfPosition(src, n.getFullStart()).line;
+    //   endLn = ts.getLineAndCharacterOfPosition(src, n.getEnd()).line;
+    // }
     let lns = emitStmt(n);
-    for (let i = 0; i < lns.length; i++) {
-      if (i === 0 && startLn === lastEndLine) {
-        stmts[stmts.length - 1] += lns[i];
-      } else {
-        stmts.push(lns[i]);
-      }
+    if (isUnchanged(n)) {
+      res += lns;
+    } else {
+      res += "\n" + lns;
     }
-    lastEndLine = endLn;
+    // for (let i = 0; i < lns.length; i++) {
+    //   if (i === 0 && startLn === lastEndLine) {
+    //     stmts[stmts.length - 1] += lns[i];
+    //   } else {
+    //     stmts.push(lns[i]);
+    //   }
+    // }
+    // lastEndLine = endLn;
   }
-  return stmts;
+  return res;
 }
-function emitBlock(n: ts.Block): string[] {
-  if (isUnchanged(n)) return [emitOld(n)];
+function emitBlock(n: ts.Block): string {
+  if (isUnchanged(n)) return emitOld(n);
   const trivia = getOriginalLeadingTrivia(n);
   let stmts = emitStmtList(n.statements);
-  return [trivia + "{", ...stmts, "}"];
+  return trivia + "{" + stmts + "\n}";
 }
 function emitParameter(n: ts.ParameterDeclaration): string {
   if (isUnchanged(n)) return emitOld(n);
@@ -130,7 +131,7 @@ function emitExp(n: ts.Expression): string {
     const params = n.parameters.map(emitParameter);
     assert(n.body, `TODO: impl fn without body?`);
     let body: string;
-    if (ts.isBlock(n.body)) body = emitBlock(n.body).join("\n");
+    if (ts.isBlock(n.body)) body = emitBlock(n.body);
     else body = emitExp(n.body);
     return `(${params.join(", ")}) => ${body}`;
   } else {

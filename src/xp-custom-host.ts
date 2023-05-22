@@ -124,7 +124,7 @@ async function transformFiles() {
   const printer = mkPrinter();
 
   console.log("writting..");
-  const newFileStr = printer.emitFile(newFile).join("\n");
+  const newFileStr = printer.emitFile(newFile); //.join("\n");
 
   // console.log(emit(newFile));
   await fs.writeFile(PATH_OUT, newFileStr);
