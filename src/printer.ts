@@ -20,10 +20,7 @@ export function mkPrinter() {
 
 function emitFile(n: ts.SourceFile): string[] {
   if (isUnchanged(n)) return [emitOld(n)];
-  let res: string[] = [];
-  for (let stmt of n.statements) {
-    for (let ln of emitStmt(stmt)) res.push(ln);
-  }
+  let res: string[] = emitStmtList(n.statements);
   return res;
 }
 function emitIdentifier(n?: ts.Identifier): string {
@@ -48,6 +45,11 @@ function emitMod(m: ts.Modifier): string {
   return tsKeywordToStr[m.kind]!;
 }
 function emitStmt(n: ts.Statement): string[] {
+  // TODO(@darzu): DBG
+  // if (isUnchanged(n) && n.getFullText().includes("CONFIGURABLE")) {
+  //   // what to do
+  //   let foo = 3;
+  // }
   if (isUnchanged(n)) return [emitOld(n)];
   if (ts.isIfStatement(n)) {
     const trivia = getOriginalLeadingTrivia(n);
@@ -80,10 +82,34 @@ function emitStmt(n: ts.Statement): string[] {
     throw new Error(`Unknown stmt kind: ${SyntaxKindName[n.kind]}`);
   }
 }
+function emitStmtList(ns: ts.NodeArray<ts.Statement>): string[] {
+  if (ns.length === 0) return [];
+  let stmts: string[] = [];
+  let lastEndLine = -2;
+  const src = ns[0].getSourceFile();
+  for (let n of ns) {
+    let startLn = -1;
+    let endLn = -1;
+    if (isUnchanged(n)) {
+      startLn = ts.getLineAndCharacterOfPosition(src, n.getFullStart()).line;
+      endLn = ts.getLineAndCharacterOfPosition(src, n.getEnd()).line;
+    }
+    let lns = emitStmt(n);
+    for (let i = 0; i < lns.length; i++) {
+      if (i === 0 && startLn === lastEndLine) {
+        stmts[stmts.length - 1] += lns[i];
+      } else {
+        stmts.push(lns[i]);
+      }
+    }
+    lastEndLine = endLn;
+  }
+  return stmts;
+}
 function emitBlock(n: ts.Block): string[] {
   if (isUnchanged(n)) return [emitOld(n)];
   const trivia = getOriginalLeadingTrivia(n);
-  let stmts = n.statements.flatMap((n2) => emitStmt(n2));
+  let stmts = emitStmtList(n.statements);
   return [trivia + "{", ...stmts, "}"];
 }
 function emitParameter(n: ts.ParameterDeclaration): string {
@@ -113,7 +139,7 @@ function emitExp(n: ts.Expression): string {
 }
 function emitOld(n: ts.Node): string {
   let r = n.getFullText();
-  if (r.startsWith("\n")) r = r.slice(1);
+  // if (r.startsWith("\n")) r = r.slice(1);
   // console.log(JSON.stringify(r));
   return r;
 }
