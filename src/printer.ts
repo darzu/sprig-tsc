@@ -20,7 +20,9 @@ export function mkPrinter() {
 
 function emitFile(n: ts.SourceFile): string {
   if (isUnchanged(n)) return emitOld(n);
-  return emitStmtList(n.statements);
+  const stmts = emitStmtList(n.statements);
+  const trailing = getBlockTrailing(n);
+  return `${stmts}${trailing}`;
 }
 function emitIdentifier(n?: ts.Identifier): string {
   // TODO(@darzu): ever need to do something more complex?
@@ -37,7 +39,7 @@ function getLeadingTrivia(n: ts.Node): string {
     return "\n";
   }
 }
-function getBlockTrailing(n: ts.Block): string {
+function getBlockTrailing(n: ts.Block | ts.SourceFile): string {
   if (isUpdated(n)) {
     const orig = n.original.getFullText();
     const lastStmtEnd = n.statements[n.statements.length - 1].end;
@@ -61,7 +63,7 @@ function emitStmt(n: ts.Statement): string {
   if (ts.isIfStatement(n)) {
     const cond = emitExp(n.expression);
     const body = emitStmt(n.thenStatement);
-    return getLeadingTrivia(n) + `if (${cond}) ${body}`;
+    return getLeadingTrivia(n) + `if (${cond})${body}`;
   } else if (ts.isFunctionDeclaration(n)) {
     let mods: string[] = [];
     if (n.modifiers) {
@@ -85,15 +87,13 @@ function emitStmt(n: ts.Statement): string {
     assert(n.body, `TODO: impl fn without body?`);
     const body = emitBlock(n.body!);
     let typeStr = "";
-    if (n.type) typeStr = ": " + n.type.getFullText();
-    return (
-      getLeadingTrivia(n) +
-      `${modStr}function ${name}${typeParamsStr}(${params.join(
-        ", "
-      )})${typeStr} ${body}`
-    );
+    if (n.type) typeStr = ":" + n.type.getFullText();
+    const leading = getLeadingTrivia(n);
+    const paramsStr = params.join(",");
+    return `${leading}${modStr}function ${name}${typeParamsStr}(${paramsStr})${typeStr}${body}`;
   } else if (ts.isExpressionStatement(n)) {
-    return emitExp(n.expression);
+    const exp = emitExp(n.expression);
+    return `${exp};`;
   } else if (ts.isBlock(n)) {
     return emitBlock(n);
   } else {
@@ -124,7 +124,7 @@ function emitExp(n: ts.Expression): string {
   if (ts.isCallExpression(n)) {
     const fn = emitExp(n.expression); // fn has the trivia
     const args = n.arguments.map(emitExp);
-    return `${fn}(${args.join(", ")})`;
+    return `${fn}(${args.join(",")})`;
   } else if (ts.isPropertyAccessExpression(n)) {
     const obj = emitExp(n.expression); // obj has the trivia
     return `${obj}.${n.name.text}`;
@@ -136,7 +136,7 @@ function emitExp(n: ts.Expression): string {
     let body: string;
     if (ts.isBlock(n.body)) body = emitBlock(n.body);
     else body = emitExp(n.body);
-    return `${trivia}(${params.join(", ")}) => ${body}`;
+    return `${trivia}(${params.join(",")}) =>${body}`;
   } else {
     throw Error(`Unknown exp kind: ${SyntaxKindName[n.kind]}`);
   }
