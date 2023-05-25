@@ -1,8 +1,9 @@
 import ts from "typescript";
-import { registerSystemTransformer } from "./transform-registerSystem.js";
+import { registerSystemTransformer } from "./transform-regSys-name.js";
 import { assert } from "./util.js";
 import { mkPrinter } from "./printer.js";
 import { promises as fs } from "fs";
+import { create_regSystemPhase_transformers } from "./transform-regSys-phase.js";
 
 const SPRIG_PATH = "/Users/darzu/sprig";
 const THIS_PATH = "/Users/darzu/projects/sprig-tsc";
@@ -109,8 +110,15 @@ async function watchMain() {
   );
   // .slice(0, 10);
 
-  const transformerFactory = registerSystemTransformer;
-  const transformed = ts.transform(sourceFiles, [transformerFactory]);
+  // const transformerFactory = registerSystemTransformer;
+  const passes = create_regSystemPhase_transformers();
+  let transformed: ts.TransformationResult<ts.Node>;
+  for (let pass of passes) {
+    // TODO(@darzu): this isn't actually composing passes. The last pass better be the only
+    // one that mutates
+    transformed = ts.transform(sourceFiles, [pass]);
+  }
+  assert(passes.length && transformed!);
 
   const program2 = watcher.getProgram().getProgram();
 
@@ -134,7 +142,7 @@ async function watchMain() {
       console.log(`updating ${newFile.fileName}`);
       await fs.writeFile(newFile.fileName, newFileStr);
       numUpdated++;
-      if (numUpdated > 5) {
+      if (numUpdated >= 10) {
         break;
       }
     }

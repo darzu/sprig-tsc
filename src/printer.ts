@@ -125,6 +125,8 @@ function emitExp(n: ts.Expression): string {
     const fn = emitExp(n.expression); // fn has the trivia
     const args = n.arguments.map(emitExp);
     return `${fn}(${args.join(",")})`;
+  } else if (ts.isIdentifier(n)) {
+    return n.text;
   } else if (ts.isPropertyAccessExpression(n)) {
     const obj = emitExp(n.expression); // obj has the trivia
     return `${obj}.${n.name.text}`;
