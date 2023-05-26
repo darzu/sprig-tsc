@@ -96,6 +96,21 @@ function emitStmt(n: ts.Statement): string {
     return `${exp};`;
   } else if (ts.isBlock(n)) {
     return emitBlock(n);
+  } else if (ts.isImportDeclaration(n)) {
+    assert(!n.modifiers, `TODO: import modifiers`);
+    assert(!n.assertClause, `TODO: import assert clause`);
+    assert(
+      n.importClause && isUnchanged(n.importClause),
+      `TODO: import clause`
+    );
+    assert(
+      ts.isStringLiteral(n.moduleSpecifier),
+      `TODO: fancy module specifier`
+    );
+    const leading = getLeadingTrivia(n);
+    return `${leading}import${n.importClause.getFullText()} from "${
+      n.moduleSpecifier.text
+    }";`;
   } else {
     throw new Error(`Unknown stmt kind: ${SyntaxKindName[n.kind]}`);
   }
