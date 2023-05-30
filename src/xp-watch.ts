@@ -5,6 +5,7 @@ import { mkPrinter } from "./printer.js";
 import { promises as fs } from "fs";
 import { create_regSystemPhase_transformers } from "./transform-regSys-phase.js";
 import { create_importJsFix_transformers } from "./transform-importJsFix.js";
+import { create_addLazyInit_transformers } from "./transform-addLazyInit.js";
 
 const SPRIG_PATH = "/Users/darzu/sprig";
 const THIS_PATH = "/Users/darzu/projects/sprig-tsc";
@@ -113,7 +114,8 @@ async function watchMain() {
 
   // const transformerFactory = registerSystemTransformer;
   // const passes = create_regSystemPhase_transformers();
-  const passes = create_importJsFix_transformers();
+  // const passes = create_importJsFix_transformers();
+  const passes = create_addLazyInit_transformers();
   let transformed: ts.TransformationResult<ts.Node>;
   for (let pass of passes) {
     // TODO(@darzu): this isn't actually composing passes. The last pass better be the only
