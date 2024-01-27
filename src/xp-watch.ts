@@ -114,8 +114,8 @@ async function watchMain() {
 
   // const transformerFactory = registerSystemTransformer;
   // const passes = create_regSystemPhase_transformers();
-  // const passes = create_importJsFix_transformers();
-  const passes = create_addLazyInit_transformers();
+  const passes = create_importJsFix_transformers();
+  // const passes = create_addLazyInit_transformers();
   let transformed: ts.TransformationResult<ts.Node>;
   for (let pass of passes) {
     // TODO(@darzu): this isn't actually composing passes. The last pass better be the only
