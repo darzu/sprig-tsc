@@ -6,6 +6,7 @@ import { promises as fs } from "fs";
 import { create_regSystemPhase_transformers } from "./transform-regSys-phase.js";
 import { create_importJsFix_transformers } from "./transform-importJsFix.js";
 import { create_addLazyInit_transformers } from "./transform-addLazyInit.js";
+import { regVec3Rename } from "./transform-vec3-rename.js";
 
 const SPRIG_PATH = "/Users/darzu/sprig";
 const THIS_PATH = "/Users/darzu/projects/sprig-tsc";
@@ -104,6 +105,7 @@ async function watchMain() {
       console.log(ts.flattenDiagnosticMessageText(d.messageText, "\n"));
     }
     throw "errors";
+    // ("errors");
   }
 
   const sourceFiles = [...program.getSourceFiles()].filter(
@@ -114,8 +116,10 @@ async function watchMain() {
 
   // const transformerFactory = registerSystemTransformer;
   // const passes = create_regSystemPhase_transformers();
-  const passes = create_importJsFix_transformers();
+  // const passes = create_importJsFix_transformers();
   // const passes = create_addLazyInit_transformers();
+  const passes = [regVec3Rename];
+
   let transformed: ts.TransformationResult<ts.Node>;
   for (let pass of passes) {
     // TODO(@darzu): this isn't actually composing passes. The last pass better be the only
@@ -127,7 +131,7 @@ async function watchMain() {
   const program2 = watcher.getProgram().getProgram();
 
   const diags2 = ts.getPreEmitDiagnostics(program2);
-  if (diags2.length) {
+  if (diags2.length !== diags.length) {
     throw "errors";
   }
 

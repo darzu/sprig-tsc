@@ -1,6 +1,6 @@
 import { SyntaxKindName } from "./syntaxKindName.js";
 import { assert, flatten, range } from "./util.js";
-import ts from "typescript";
+import ts, { isImportSpecifier, isTypeReferenceNode } from "typescript";
 // import * as ts from "../../TypeScript/src/compiler/_namespaces/ts";
 
 /* NOTES: 
@@ -99,21 +99,35 @@ function emitStmt(n: ts.Statement): string {
   } else if (ts.isImportDeclaration(n)) {
     assert(!n.modifiers, `TODO: import modifiers`);
     assert(!n.assertClause, `TODO: import assert clause`);
-    assert(
-      n.importClause && isUnchanged(n.importClause),
-      `TODO: import clause`
-    );
+    assert(n.importClause, `TODO: non-import clause import declaration`);
+    // assert(
+    //   n.importClause && isUnchanged(n.importClause),
+    //   `TODO: import clause`
+    // );
     assert(
       ts.isStringLiteral(n.moduleSpecifier),
       `TODO: fancy module specifier`
     );
+    const importClause = emitImportClause(n.importClause);
     const leading = getLeadingTrivia(n);
-    return `${leading}import${n.importClause.getFullText()} from "${
-      n.moduleSpecifier.text
-    }";`;
+    return `${leading}import${importClause} from "${n.moduleSpecifier.text}";`;
   } else {
     throw new Error(`Unknown stmt kind: ${SyntaxKindName[n.kind]}`);
   }
+}
+function emitImportClause(n: ts.ImportClause): string {
+  if (isUnchanged(n)) return n.getFullText();
+  assert(n.namedBindings, "TODO");
+
+  let res = "{ ";
+
+  n.namedBindings.forEachChild((b) => {
+    assert(isImportSpecifier(b));
+    res += `${b.name.text}, `;
+  });
+  res += "}";
+
+  return res;
 }
 function emitStmtList(ns: ts.NodeArray<ts.Statement>): string {
   if (ns.length === 0) return "";
@@ -132,7 +146,15 @@ function emitBlock(n: ts.Block): string {
 }
 function emitParameter(n: ts.ParameterDeclaration): string {
   if (isUnchanged(n)) return emitOld(n);
-  throw new Error(`TODO: emitParameter`);
+  let res = `${n.name.getText()}`;
+  if (n.type) {
+    res += `: ${emitType(n.type)}`;
+  }
+  return res;
+  // throw new Error(`TODO: emitParameter`);
+}
+function emitType(n: ts.TypeNode): string {
+  throw "TODO";
 }
 function emitExp(n: ts.Expression): string {
   if (isUnchanged(n)) return emitOld(n);
